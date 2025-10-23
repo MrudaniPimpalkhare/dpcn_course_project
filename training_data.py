@@ -5,6 +5,8 @@ from torch.distributions import MultivariateNormal
 # Set a default tensor type for performance
 torch.set_default_dtype(torch.float32)
 
+torch.set_default_device('cuda')
+
 def build_correlation_matrix(N, K, cluster_assignments, intra_corrs, epsilon):
     """
     Builds the N x N correlation matrix for the synthetic market.
