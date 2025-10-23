@@ -5,7 +5,9 @@ from torch.distributions import MultivariateNormal
 # Set a default tensor type for performance
 torch.set_default_dtype(torch.float32)
 
-torch.set_default_device('cuda')
+# Set device to CUDA if available, otherwise CPU
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f"Using device: {device}")
 
 def build_correlation_matrix(N, K, cluster_assignments, intra_corrs, epsilon):
     """
@@ -24,7 +26,7 @@ def build_correlation_matrix(N, K, cluster_assignments, intra_corrs, epsilon):
         torch.Tensor: The (N, N) correlation matrix.
     """
     # 1. Initialize the matrix with 1s on the diagonal
-    corr_matrix = torch.eye(N)
+    corr_matrix = torch.eye(N, device=device)
     
     # 2. Use broadcasting to efficiently create a matrix of cluster IDs
     #    cluster_matrix[i, j] will be True if stock i and j are in the same cluster
@@ -39,7 +41,7 @@ def build_correlation_matrix(N, K, cluster_assignments, intra_corrs, epsilon):
     
     # 4. Create the inter-cluster (epsilon) matrix
     #    This matrix has epsilon everywhere *except* the diagonal
-    epsilon_matrix = torch.full((N, N), epsilon)
+    epsilon_matrix = torch.full((N, N), epsilon, device=device)
     
     # 5. Combine the matrices
     #    - Start with the epsilon matrix
@@ -78,14 +80,14 @@ def generate_universe_data(N, K, T, w, epsilon_start=0.1, epsilon_end=0.9, epsil
     # --- 1. Set up the "physics" for this unique universe ---
     
     # Assign each of the N stocks to one of K clusters
-    cluster_assignments = torch.randint(0, K, (N,))
+    cluster_assignments = torch.randint(0, K, (N,), device=device)
     
     # Assign a random "intra-cluster correlation" for each cluster
     # As requested, this is a random number between 0.5 and 1.0
-    intra_corrs = (torch.rand(K) * 0.5) + 0.5
+    intra_corrs = (torch.rand(K, device=device) * 0.5) + 0.5
 
     all_time_series_data = []
-    epsilon_steps = torch.arange(epsilon_start, epsilon_end + epsilon_step, epsilon_step)
+    epsilon_steps = torch.arange(epsilon_start, epsilon_end + epsilon_step, epsilon_step, device=device)
     
     epsilon_c = None # This will be our label
     
@@ -120,7 +122,7 @@ def generate_universe_data(N, K, T, w, epsilon_start=0.1, epsilon_end=0.9, epsil
         # Define the multivariate normal distribution
         # `loc` is the mean (0 for returns), `covariance_matrix` is our matrix
         try:
-            dist = MultivariateNormal(loc=torch.zeros(N), covariance_matrix=corr_matrix)
+            dist = MultivariateNormal(loc=torch.zeros(N, device=device), covariance_matrix=corr_matrix)
         except ValueError:
             # Catches other numerical instability.
             epsilon_c = epsilon_val
